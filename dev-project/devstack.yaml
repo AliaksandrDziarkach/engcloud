@@ -104,10 +104,15 @@ resources:
                       enable_service heat h-api h-api-cfn h-api-cw h-eng
 
                       enable_plugin heat-infoblox https://github.com/$fork_name/heat-infoblox.git $branch_name
+
                       # take measurements every 30s
                       CEILOMETER_PIPELINE_INTERVAL=30
-                      enable_service ceilometer-acompute ceilometer-acentral ceilometer-anotification ceilometer-collector ceilometer-api
-                      enable_service ceilometer-alarm-notifier ceilometer-alarm-evaluator
+                      # For Kilo and earlier, use these two lines for Ceilometer:
+                      # enable_service ceilometer-acompute ceilometer-acentral ceilometer-anotification ceilometer-collector ceilometer-api
+                      # enable_service ceilometer-alarm-notifier ceilometer-alarm-evaluator
+
+                      # For Liberty and later, use this line for Ceilometer:
+                      enable_plugin ceilometer https://git.openstack.org/openstack/ceilometer.git $branch_name
 
                       enable_plugin ceilometer-infoblox https://github.com/$fork_name/ceilometer-infoblox.git $branch_name
 
