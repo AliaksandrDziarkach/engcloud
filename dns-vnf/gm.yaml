@@ -82,6 +82,7 @@ resources:
 # The mgmt IP is allocated by OpenStack but not configured in the GM. However,
 # we need to list it here since LAN1 needs to be the second NIC
       networks: [{network: mgmt-net }, {port: { get_resource: lan1_port}} ]
+      metadata: {'infoblox': 'true'}
       config_drive: true
       user_data_format: RAW
       user_data:

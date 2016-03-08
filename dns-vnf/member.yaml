@@ -24,9 +24,6 @@ parameters:
   gm_cert:
     type: string
     description: the GM certificate contents
-  parent_stack_id:
-    type: string
-    description: the stack ID of the calling stack
 resources:
   host_name:
     type: OS::Heat::RandomString
@@ -53,7 +50,7 @@ resources:
     type: Infoblox::Grid::Member
     properties:
       connection: {url: {get_param: wapi_url}, username: {get_param: wapi_username}, password: {get_param: wapi_password}, sslverify: {get_param: wapi_sslverify}}
-      name: { list_join: [ '.', [{ list_join: [ '-', [ 'autoscale-dns', { get_resource: host_name } ]] }, 'localdomain' ]] }
+      name: { list_join: [ '.', [{ list_join: [ '-', [ 'member-dns', { get_resource: host_name } ]] }, 'localdomain' ]] }
       model: IB-VM-820
 # the MGMT interface configuration is not yet supported
       LAN1: { get_resource: lan1_port }
@@ -91,7 +88,7 @@ resources:
   server:
     type: OS::Nova::Server
     properties:
-      name: { list_join: [ '-', [ 'autoscale-dns', { get_resource: host_name } ]] }
+      name: { list_join: [ '-', [ 'member-dns', { get_resource: host_name } ]] }
       flavor: vnios-820.55
       image: nios-7.3.0-314102-55G-820
       networks: [{network: mgmt-net }, {port: { get_resource: lan1_port}} ]
@@ -100,4 +97,4 @@ resources:
       user_data: { get_attr: [grid_member, user_data] }
       # By default, SNMP polling is done on the first floating IP found for a given instance
       # To override that, you can specify an IP in the infoblox-snmp-ip metadata item.
-      metadata: {"metering.stack": {get_param: parent_stack_id}, 'infoblox': 'true'}
+      metadata: {'infoblox': 'true'}

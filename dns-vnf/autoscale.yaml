@@ -27,7 +27,7 @@ parameters:
   min_members:
     type: number
     description: the minimum number of members to keep alive
-    default: 2
+    default: 0
   max_members:
     type: number
     description: the maximum number of members allowed in the stack
@@ -51,13 +51,13 @@ resources:
       adjustment_type: change_in_capacity
       auto_scaling_group_id: {get_resource: nios_member_group}
       cooldown: 900
-      scaling_adjustment: 1
+      scaling_adjustment: 2
   scaledown_policy:
     type: OS::Heat::ScalingPolicy
     properties:
       adjustment_type: change_in_capacity
       auto_scaling_group_id: {get_resource: nios_member_group}
-      cooldown: 900
+      cooldown: 9000
       scaling_adjustment: -1
   qps_alarm_high:
     type: OS::Ceilometer::Alarm
@@ -67,10 +67,11 @@ resources:
       statistic: avg
       period: 120
       evaluation_periods: 1
-      threshold: 100
+      threshold: 5000
       alarm_actions:
         - {get_attr: [scaleup_policy, alarm_url]}
-      matching_metadata: {'metadata.metering.stack': {get_param: "OS::stack_id"}}
+      #matching_metadata: {'metadata.metering.stack': {get_param: "OS::stack_id"}}
+      matching_metadata: {'infoblox': 'true'}
       comparison_operator: gt
   qps_alarm_low:
     type: OS::Ceilometer::Alarm
@@ -78,10 +79,11 @@ resources:
       description: Scale down based on QPS
       meter_name: nios.dns.qps
       statistic: avg
-      period: 120
-      evaluation_periods: 1
-      threshold: 10
+      period: 1200
+      evaluation_periods: 10
+      threshold: 1000
       alarm_actions:
         - {get_attr: [scaledown_policy, alarm_url]}
-      matching_metadata: {'metadata.metering.stack': {get_param: "OS::stack_id"}}
+      #matching_metadata: {'metadata.metering.stack': {get_param: "OS::stack_id"}}
+      matching_metadata: {'infoblox': 'true'}
       comparison_operator: lt
