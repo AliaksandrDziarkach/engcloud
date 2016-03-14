@@ -91,3 +91,9 @@ when we implement Heat resources to launch HA members.
 
 The basic functions used by these scripts are in ``grid-lib.sh``; any re-usable
 functions should be added there.
+
+Note that some of these YAML files allow various parameters, such as the
+particular image/model/flavor of VM to spin up. With some effort, it should
+be pretty straightforward to build up a set of templates that enable a very
+dynamic system for building up grids. For example, adding templates that
+enable grids with CP, reporting, and discovery members.
