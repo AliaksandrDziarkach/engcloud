@@ -74,9 +74,10 @@ function wait_for_wapi() {
 
 function download_cert() {
 	ip=$1
-	echo $(date): Downloading certificate for use in member join...
+	file=$2
+	echo $(date): Downloading certificate from $ip for use in member join...
 	echo
-	echo | openssl s_client -connect $ip:443 2>/dev/null | openssl x509 | sed -e 's/^/    /' > /tmp/gm-$ip-cert.pem
+	echo | openssl s_client -connect $ip:443 2>/dev/null | openssl x509 | sed -e 's/^/    /' > $file
 	echo $(date): Done
 }
 
@@ -103,6 +104,25 @@ function grid_join() {
 	ref=$(grid_ref $fip)
 	echo $(curl -sk -u admin:infoblox -X POST "https://$fip/wapi/v2.3/$ref?_function=join&master=$vip&shared_secret=test&grid_name=Infoblox")
 	echo
+}
+
+function grid_snmp() {
+	fip=$1
+	echo "Enabling SNMP..."
+	echo $(curl -sk -u admin:infoblox -X PUT -H "Content-Type: application/json" -d '{"snmp_setting": {"queries_enable": true, "queries_community_string": "public"}}' https://$fip/wapi/v2.3/$(grid_ref $fip))
+}
+
+
+function grid_dns() {
+	fip=$1
+	echo "Enabling DNS..."
+	echo $(curl -sk -u admin:infoblox -X PUT -H "Content-Type: application/json" -d '{"enable_dns": true}' https://$fip/wapi/v2.3/$(grid_ref $fip))
+}
+
+function grid_nsgroup() {
+	fip=$1
+	echo "Adding a default nsgroup..."
+	echo $(curl -sk -u admin:infoblox -X POST -H "Content-Type: application/json" -d '{"name": "default", "is_grid_default": true, "grid_primary": [{"name": "infoblox.localdomain"}]}' https://$fip/wapi/v2.3/nsgroup)
 }
 
 # main
@@ -135,19 +155,25 @@ N2_LAN=$(port_first_fixed_ip $lan1_port_node_2)
 N2_HA=$(port_first_fixed_ip $ha_port_node_2)
 
 
-#wait_for_ping $N1_FIP
-#wait_for_ssl $N1_FIP
-#wait_for_wapi $N1_FIP
+wait_for_ping $N1_FIP
+wait_for_ssl $N1_FIP
+wait_for_wapi $N1_FIP
 
 echo "Setting Networking Parameters for HA on Node 1..."
-#GM_REF=$(gm_ref $N1_FIP)
-#grid_set_ha $N1_FIP $GM_REF $VIP $GW $N1_LAN $N1_HA $N2_LAN $N2_HA
+GM_REF=$(gm_ref $N1_FIP)
+grid_set_ha $N1_FIP $GM_REF $VIP $GW $N1_LAN $N1_HA $N2_LAN $N2_HA
 
 wait_for_ping $VIP_FIP
 wait_for_ssl $VIP_FIP
 wait_for_wapi $VIP_FIP
 
+download_cert $VIP_FIP /tmp/gm-$VIP_FIP-cert.pm
+
 grid_join $VIP $N2_FIP
+
+grid_snmp $VIP_FIP
+grid_dns $VIP_FIP
+grid_nsgroup $VIP_FIP
 
 FIP_NET_ID=$(neutron floatingip-show -c floating_network_id -f value $node_1_floating_ip)
 FIP_NET=$(neutron net-show -c name -f value $FIP_NET_ID)
@@ -170,4 +196,9 @@ parameter_defaults:
   wapi_sslverify: false
 EOF
 
-
+echo
+echo HA GM is now configured and ready.
+echo You may add a member via:
+echo
+echo heat stack-create -e gm-$VIP_FIP-env.yaml -f member.yaml member-1
+echo
