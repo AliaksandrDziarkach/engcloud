@@ -69,22 +69,6 @@ resources:
       member_role: grid_secondary
       member_server: { name: { get_attr: [grid_member, name] } }
 
-  lb_member:
-    type: Infoblox::NetMRI::ManagedResource
-    depends_on: [floating_ip]
-    properties:
-      connection: { url: "netmri", username: admin, password: per1sc0pe1, sslverify: False }
-      create_job:
-        source: { script: "LB - Add Pool Member" }
-        targets: [ { device_ip_address: 172.22.60.5, network_view: Network 1 } ]
-        inputs: { pool_name: DNS_Autoscale_Pool, member_ip: { get_attr: [floating_ip, floating_ip_address] }, member_port: "53" }
-        wait: True
-      delete_job:
-        source: { script: "LB - Delete Pool Member" }
-        targets: [ { device_ip_address: 172.22.60.5, network_view: Network 1 } ]
-        inputs: { pool_name: DNS_Autoscale_Pool, member_ip: { get_attr: [floating_ip, floating_ip_address] }, member_port: "53" }
-        wait: True
-
   server:
     type: OS::Nova::Server
     properties:
@@ -95,6 +79,3 @@ resources:
       config_drive: true
       user_data_format: RAW
       user_data: { get_attr: [grid_member, user_data] }
-      # By default, SNMP polling is done on the first floating IP found for a given instance
-      # To override that, you can specify an IP in the infoblox-snmp-ip metadata item.
-      metadata: {'infoblox': 'true'}
