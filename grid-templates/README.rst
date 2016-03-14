@@ -6,6 +6,21 @@ This directory contains templates and scripts for building grids.
 Summary of Templates and Scripts
 --------------------------------
 
+*simple-net.yaml* - Creates a basic network for a grid.
+
+*gm.yaml* - Creates a grid master, based on `simple-net.yaml`.
+
+*config-gm.sh* - Configures the basics for a standalone GM that was created
+using `gm.yaml`.
+
+*gm-ha.yaml* - Creates an HA grid master, based on `simple-net.yaml`. The HA
+configuration on the grid itself is handled by `config-gm-ha.sh`.
+
+*config-gm-ha.sh* - Configures HA on nodes created via `gm-ha.yaml`, and
+basic DNS features as well.
+
+*member.yaml* - Adds a single member to an existing grid.
+
 
 Creating the Network
 --------------------
