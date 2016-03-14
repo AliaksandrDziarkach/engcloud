@@ -16,9 +16,11 @@ if [[ -z "$USERNAME" ]]; then
 fi
 
 openstack project create $PROJECT_NAME
+PROJECT_ID=$(openstack project show $PROJECT_NAME | grep ' id ' | cut -d \| -f 3 | tr -d ' ')
+openstack quota set --ram 102400 --cores 24 $PROJECT_ID
 openstack user create $USERNAME --project $PROJECT_NAME --password infoblox
 openstack role add --user $USERNAME --project $PROJECT_NAME user
-openstack role add --user admin --project $PROJECT_NAME user
+
 
 cat > $USERNAME-env.yaml <<EOF
 parameters:
