@@ -1,0 +1,100 @@
+heat_template_version: 2014-10-16
+description: An Infoblox Grid Member
+parameters:
+  external_network:
+    type: string
+    description: the external network for floating IP allocations
+    default: public-138-net
+  wapi_url:
+    type: string
+    description: the URL to access the GM WAPI from the Heat engine
+  wapi_username:
+    type: string
+    description: the username for the WAPI access
+  wapi_password:
+    type: string
+    description: the username for the WAPI access
+  wapi_sslverify:
+    type: string
+    description: the value for SSL Verify (true/false/certificate path)
+    default: false
+  gm_vip:
+    type: string
+    description: the VIP of the GM, to be used by members for joining the grid
+  gm_cert:
+    type: string
+    description: the GM certificate contents
+resources:
+  host_name:
+    type: OS::Heat::RandomString
+    properties:
+      length: 12
+      sequence: lowercase
+
+# We pre-allocate the port for LAN1, so that we have the IP address already for
+# injection via user_data
+  lan1_port:
+    type: OS::Neutron::Port
+    properties:
+      network: protocol-net
+      security_groups: [ Infoblox ]
+
+# Each member needs a floating IP so Ceilometer can poll the member for QPS.
+  floating_ip:
+    type: OS::Neutron::FloatingIP
+    properties:
+      floating_network: { get_param: external_network }
+      port_id: { get_resource: lan1_port }
+
+  grid_member:
+    type: Infoblox::Grid::Member
+    properties:
+      connection: {url: {get_param: wapi_url}, username: {get_param: wapi_username}, password: {get_param: wapi_password}, sslverify: {get_param: wapi_sslverify}}
+      name: { list_join: [ '.', [{ list_join: [ '-', [ 'member-dns', { get_resource: host_name } ]] }, 'localdomain' ]] }
+      model: IB-VM-820
+# the MGMT interface configuration is not yet supported
+      LAN1: { get_resource: lan1_port }
+      dns: { enable: True }
+      temp_licenses: ["vnios", "dns", "enterprise", "rpz"]
+      gm_ip: { get_param: gm_vip }
+      gm_certificate: { get_param: gm_cert }
+      remote_console_enabled: true
+      admin_password: infoblox
+
+  grid_member_ns_group_entry:
+    type: Infoblox::Grid::NameServerGroupMember
+    properties:
+      connection: {url: {get_param: wapi_url}, username: {get_param: wapi_username}, password: {get_param: wapi_password}, sslverify: {get_param: wapi_sslverify}}
+      group_name: default
+      member_role: grid_secondary
+      member_server: { name: { get_attr: [grid_member, name] } }
+
+  lb_member:
+    type: Infoblox::NetMRI::ManagedResource
+    depends_on: [floating_ip]
+    properties:
+      connection: { url: "netmri", username: admin, password: per1sc0pe1, sslverify: False }
+      create_job:
+        source: { script: "LB - Add Pool Member" }
+        targets: [ { device_ip_address: 172.22.60.5, network_view: Network 1 } ]
+        inputs: { pool_name: DNS_Autoscale_Pool, member_ip: { get_attr: [floating_ip, floating_ip_address] }, member_port: "53" }
+        wait: True
+      delete_job:
+        source: { script: "LB - Delete Pool Member" }
+        targets: [ { device_ip_address: 172.22.60.5, network_view: Network 1 } ]
+        inputs: { pool_name: DNS_Autoscale_Pool, member_ip: { get_attr: [floating_ip, floating_ip_address] }, member_port: "53" }
+        wait: True
+
+  server:
+    type: OS::Nova::Server
+    properties:
+      name: { list_join: [ '-', [ 'member-dns', { get_resource: host_name } ]] }
+      flavor: vnios-820.55
+      image: nios-7.3.0-314102-55G-820
+      networks: [{network: mgmt-net }, {port: { get_resource: lan1_port}} ]
+      config_drive: true
+      user_data_format: RAW
+      user_data: { get_attr: [grid_member, user_data] }
+      # By default, SNMP polling is done on the first floating IP found for a given instance
+      # To override that, you can specify an IP in the infoblox-snmp-ip metadata item.
+      metadata: {'infoblox': 'true'}

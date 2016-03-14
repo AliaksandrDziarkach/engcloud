@@ -42,15 +42,15 @@ parameters:
   image:
     type: string
     description: NIOS image to use
-    #default: nios-7.3.0-314102-160G-1420
-    default: nios-7.3.0-314102-55G-820
+    default: nios-7.3.0-314102-160G-1420
+    #default: nios-7.3.0-314102-55G-820
     constraints:
       - custom_constraint: glance.image
   flavor:
     type: string
     description: NIOS flavor to use (must match image)
-    #default: vnios-1420.160
-    default: vnios-820.55
+    default: vnios-1420.160
+    #default: vnios-820.55
     constraints:
       - custom_constraint: nova.flavor
 resources:
