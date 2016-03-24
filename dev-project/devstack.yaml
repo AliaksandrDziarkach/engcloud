@@ -117,6 +117,7 @@ resources:
                       enable_plugin ceilometer-infoblox https://github.com/$fork_name/ceilometer-infoblox.git $branch_name
 
             runcmd:
+              - apt-get update
               - apt-get -y --force-yes upgrade
               - echo infoblox > /tmp/pw
               - echo infoblox >> /tmp/pw
