@@ -5,10 +5,22 @@ parameters:
     type: string
     description: The external network for floating IP allocations.
     default: public-138-net
+    constraints:
+      - custom_constraint: neutron.network
   username:
     type: string
     description: Linux user name for devstack developer
     default: stack
+  flavor:
+    type: string
+    description: Flavor for the devstack instance
+    default: 4/6GB/40GB
+    constraints:
+      - custom_constraint: nova.flavor
+  name:
+    type: string
+    description: The instance name to use.
+    default: devstack
   fork_name:
     type: string
     description: The GitHub fork to use for Infoblox Heat and Ceilometer
@@ -60,8 +72,8 @@ resources:
     type: OS::Nova::Server
     depends_on: [mgmt_port]
     properties:
-      name: devstack
-      flavor: m1.xlarge
+      name: { get_param: name }
+      flavor: { get_param: flavor }
       image: Ubuntu Trusty 14.04
       networks: [{port: { get_resource: mgmt_port}}]
       user_data_format: RAW

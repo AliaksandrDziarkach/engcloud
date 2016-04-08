@@ -68,7 +68,7 @@ resources:
     depends_on: [dev_subnet]
     properties:
       name: control
-      flavor: m1.medium
+      flavor: 1/4GB/40GB
       image: Ubuntu Trusty 14.04
       networks: [{port: { get_resource: dev_port}} ]
       user_data_format: RAW
