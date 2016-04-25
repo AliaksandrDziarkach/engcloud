@@ -5,6 +5,18 @@ parameters:
     type: string
     description: the external network for floating IP allocations
     default: public-138-net
+  model:
+    type: string
+    description: vNIOS Model
+    default: IB-VM-810
+  flavor:
+    type: string
+    description: vNIOS Flavor
+    default: vnios-810.55
+  image:
+    type: string
+    description: vNIOS Flavor
+    default: nios-7.3.0-314102-55G-810
   wapi_url:
     type: string
     description: the URL to access the GM WAPI from the Heat engine
@@ -51,7 +63,7 @@ resources:
     properties:
       connection: {url: {get_param: wapi_url}, username: {get_param: wapi_username}, password: {get_param: wapi_password}, sslverify: {get_param: wapi_sslverify}}
       name: { list_join: [ '.', [{ list_join: [ '-', [ 'member-dns', { get_resource: host_name } ]] }, 'localdomain' ]] }
-      model: IB-VM-820
+      model: { get_param: model }
 # the MGMT interface configuration is not yet supported
       LAN1: { get_resource: lan1_port }
       dns: { enable: True }
@@ -73,8 +85,8 @@ resources:
     type: OS::Nova::Server
     properties:
       name: { list_join: [ '-', [ 'member-dns', { get_resource: host_name } ]] }
-      flavor: vnios-820.55
-      image: nios-7.3.0-314102-55G-820
+      flavor: { get_param: flavor }
+      image: { get_param: image }
       networks: [{network: mgmt-net }, {port: { get_resource: lan1_port}} ]
       config_drive: true
       user_data_format: RAW
