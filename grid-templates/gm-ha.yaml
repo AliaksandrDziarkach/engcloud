@@ -1,4 +1,4 @@
-heat_template_version: 2015-10-15
+heat_template_version: 2013-05-23
 description: Launches an HA pair GM, and configures the Neutron ports such that VRRP will work with IPv4 and virtual router ID 200. You must still manually configure HA on the grid.
 parameters:
   name:
@@ -43,16 +43,17 @@ parameters:
     type: string
     description: NIOS image to use
     default: nios-7.3.0-314102-160G-1420
-    #default: nios-7.3.0-314102-55G-820
     constraints:
       - custom_constraint: glance.image
   flavor:
     type: string
     description: NIOS flavor to use (must match image)
     default: vnios-1420.160
-    #default: vnios-820.55
     constraints:
       - custom_constraint: nova.flavor
+  virtual_router_id:
+    type: number
+    default: 200
 resources:
   vip_port:
     type: OS::Neutron::Port
@@ -71,9 +72,9 @@ resources:
 
   ha_port_node_1:
     type: OS::Neutron::Port
+    depends_on: [vip_port]
     properties:
       network: {get_param: lan1_network}
-      allowed_address_pairs: [{ip_address: {get_attr: [vip_port, fixed_ips, 0, ip_address]}, mac_address: "00:00:5e:00:01:c8"}]
       security_groups: [{get_param: security_group}]
 
   lan1_port_node_2:
@@ -84,9 +85,9 @@ resources:
 
   ha_port_node_2:
     type: OS::Neutron::Port
+    depends_on: [vip_port]
     properties:
       network: {get_param: lan1_network}
-      allowed_address_pairs: [{ip_address: {get_attr: [vip_port, fixed_ips, 0, ip_address]}, mac_address: "00:00:5e:00:01:c8"}]
       security_groups: [{get_param: security_group}]
 
   vip_floating_ip:
@@ -160,6 +161,20 @@ resources:
             $temp_license: { get_param: temp_license }
             $v4_addr: { get_attr: [lan1_port_node_2, fixed_ips, 0, ip_address] }
             $v4_gw: { get_attr: [lan1_port_node_2, subnets, 0, gateway_ip] }
+  ha_pair:
+    type: Infoblox::Grid::HaPair
+    depends_on: [node_1, node_2]
+    properties:
+      name: 'HaPair1'
+      vip: { get_resource: vip_port }
+      node1_ha: { get_resource: ha_port_node_1 }
+      node2_ha: { get_resource: ha_port_node_2 }
+      node1_lan1: { get_resource: lan1_port_node_1 }
+      node2_lan1: { get_resource: lan1_port_node_2 }
+      vip_floating_ip: { get_attr: [vip_floating_ip, floating_ip_address] }
+      node1_floating_ip: { get_attr: [node_1_floating_ip, floating_ip_address] }
+      node2_floating_ip: { get_attr: [node_2_floating_ip, floating_ip_address] }
+      virtual_router_id: { get_param: virtual_router_id }
 outputs:
   node1_lan1_ip:
     description: The LAN1 IP address of node 1.
