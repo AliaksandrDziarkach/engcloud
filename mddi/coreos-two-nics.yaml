@@ -1,0 +1,102 @@
+heat_template_version: 2015-10-15
+description: Launches a CoreOS cluster.
+parameters:
+  name:
+    type: string
+    description: the base host name for instances in the cluster
+    default: coreos
+  mgmt_network:
+    type: string
+    description: the network for the cluster
+    default: mgmt-net
+    constraints:
+      - custom_constraint: neutron.network
+  container_network:
+    type: string
+    description: the network for the cluster
+    default: container-net
+    constraints:
+      - custom_constraint: neutron.network
+  security_group:
+    type: string
+    description: the security group to use
+    default: WideOpen
+  image:
+    type: string
+    description: The image to use (CoreOS, CoreOS_Beta, CoreOS_Alpha)
+    default: CoreOS
+    constraints:
+      - custom_constraint: glance.image
+  flavor:
+    type: string
+    description: Instance flavor for cluster members
+    default: m1.small
+    constraints:
+      - custom_constraint: nova.flavor
+  key_name:
+    type: string
+    description: Name of keypair to inject into the server.
+    constraints:
+      - custom_constraint: nova.keypair
+  discovery_token:
+    type: string
+    description: The cluster discovery token for discovery.etcd.io
+
+resources:
+      mgmt_port:
+        type: OS::Neutron::Port
+        properties:
+          network: { get_param: mgmt_network }
+          security_groups: [ {get_param: security_group } ]
+
+# We create the container port, which in OpenStack will allocate an IP
+# In fact, we don't need an IP on this port, so we won't actually configure
+# it when the time comes.
+# We have to disable port security so all the traffic on the L2 broadcast
+# domain goes to the guest. This is done on the whole container_network.
+      container_port:
+        type: OS::Neutron::Port
+        properties:
+          network: { get_param: container_network }
+          port_security_enabled: false
+
+      server:
+        type: OS::Nova::Server
+        properties:
+          name: {get_param: name}
+          flavor: {get_param: flavor}
+          image: {get_param: image}
+          key_name: {get_param: key_name}
+          networks: [{port: {get_resource: mgmt_port}}, {port: {get_resource: container_port}}]
+          config_drive: true
+          user_data_format: RAW
+          user_data:
+            str_replace:
+              template: |
+                #cloud-config
+
+                users:
+                  - name: mddi
+                    passwd: "$6$rounds=4096$OKdwT/mQ$5ZJVUlDvSZsedPRJ2k27GoEST9AYlVlVfxAg0vIdyOCnEOlLw5z1PtFgi.xxwcUIYveI7tTyjVJdjOM6P/RaQ0"
+                    groups: wheel
+                
+                coreos:
+                  etcd2:
+                    # generate a new token for each unique cluster from https://discovery.etcd.io/new?size=3
+                    # specify the initial size of your cluster with ?size=X
+                    discovery: https://discovery.etcd.io/$token
+                    # multi-region and multi-cloud deployments need to use $public_ipv4
+                    advertise-client-urls: http://$mgmt_ipv4:2379,http://$mgmt_ipv4:4001
+                    initial-advertise-peer-urls: http://$mgmt_ipv4:2380
+                    # listen on both the official ports and the legacy ports
+                    # legacy ports can be omitted if your application doesn't depend on them
+                    listen-client-urls: http://0.0.0.0:2379,http://0.0.0.0:4001
+                    listen-peer-urls: http://$mgmt_ipv4:2380
+                  units:
+                    - name: etcd2.service
+                      command: start
+                    - name: fleet.service
+                      command: start
+              params:
+                $token: { get_param: discovery_token }
+                $mgmt_ipv4: { get_attr: [mgmt_port, fixed_ips, 0, ip_address] }
