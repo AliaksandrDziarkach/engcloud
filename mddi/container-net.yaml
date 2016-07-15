@@ -1,5 +1,5 @@
 heat_template_version: 2015-10-15
-description: Builds a simple network topology and security group for use by generic grids.
+description: Builds a simple network topology for the container IPAM flat network example.
 parameters:
   external_network:
     type: string
@@ -13,10 +13,11 @@ parameters:
     type: string
     description: A container network will be created; this is the cidr to use on that network.
     default: 10.0.0.0/22
-  protocol_cidr:
+  nameserver:
     type: string
-    description: A protocol network will be created; this is the cidr to use on that network.
-    default: 10.20.0.0/27
+    description: The nameserver for the management subnet.
+    default: 8.8.8.8
+
 resources:
   mgmt_net:
     type: OS::Neutron::Net
@@ -30,13 +31,12 @@ resources:
       name: mgmt-subnet
       network: {get_resource: mgmt_net}
       cidr: {get_param: mgmt_cidr}
-      dns_nameservers: [172.23.25.240]
+      dns_nameservers: [{get_param: nameserver}]
 
   container_net:
     type: OS::Neutron::Net
     properties:
       name: container-net
-      #port_security_enabled: false
 
   container_subnet:
     type: OS::Neutron::Subnet
@@ -46,21 +46,6 @@ resources:
       network: {get_resource: container_net}
       cidr: {get_param: container_cidr}
       enable_dhcp: false
-
-  proto_net:
-    type: OS::Neutron::Net
-    properties:
-      name: protocol-net
-
-  proto_subnet:
-    type: OS::Neutron::Subnet
-    depends_on: proto_net
-    properties:
-      name: protocol-subnet
-      network: {get_resource: proto_net}
-      cidr: {get_param: protocol_cidr}
-      enable_dhcp: false
-
 
   router:
     type: OS::Neutron::Router
@@ -81,16 +66,9 @@ resources:
       router: {get_resource: router}
       subnet: {get_resource: container_subnet}
 
-  router_protocol:
-    type: OS::Neutron::RouterInterface
-    properties:
-      router: {get_resource: router}
-      subnet: {get_resource: proto_subnet}
-
   sg:
     type: OS::Neutron::SecurityGroup
     properties:
-      name: Infoblox
-      description: This security group opens the ports needed by Infoblox DDI appliances.
-# for now, just make it wide-open
+      name: Containers
+      description: This security group opens up everything for the demo.
       rules: [ {direction: egress}, {direction: ingress} ]

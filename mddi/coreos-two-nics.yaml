@@ -20,7 +20,7 @@ parameters:
   security_group:
     type: string
     description: the security group to use
-    default: WideOpen
+    default: Containers
   image:
     type: string
     description: The image to use (CoreOS, CoreOS_Beta, CoreOS_Alpha)
