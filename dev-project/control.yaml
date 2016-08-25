@@ -67,7 +67,7 @@ resources:
     type: OS::Nova::Server
     depends_on: [dev_subnet]
     properties:
-      name: control
+      name: {get_param: username}
       flavor: 1/4GB/40GB
       image: Ubuntu Trusty 14.04
       networks: [{port: { get_resource: dev_port}} ]
@@ -113,7 +113,7 @@ resources:
               - adduser --gecos $username --quiet $username < /tmp/pw
               - usermod -G sudo $username
               - echo >> /etc/hosts
-              - echo $ipaddr control >> /etc/hosts
+              - echo $ipaddr $username >> /etc/hosts
               - cp /home/ubuntu/$username-openrc.sh /home/$username
               - echo source /home/$username/$username-openrc.sh > /home/$username/.bash_aliases
               - cp -r /home/ubuntu/.ssh /home/$username

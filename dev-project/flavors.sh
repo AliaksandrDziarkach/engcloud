@@ -9,4 +9,4 @@ fi
 
 nova flavor-create '1/4GB/40GB' auto 4096 40 1
 nova flavor-create '4/6GB/40GB' auto 6144 40 4
-
+nova flavor-create '4/6GB/160GB' auto 6144 160 4
