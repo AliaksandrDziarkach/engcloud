@@ -90,4 +90,4 @@ outputs:
     value: { get_attr: [vip_port, fixed_ips, 0, ip_address] }
   gm_floating_ip:
     description: The publically accessible floating IP of the GM.
-    value: { get_attr: [floating_ip, floating_ip_address] }
+    value: { get_attr: [vip_floating_ip, floating_ip_address] }
