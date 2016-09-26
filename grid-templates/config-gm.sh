@@ -14,18 +14,17 @@ source ./grid-lib.sh
 # set all the resource names equal to the IDs
 
 #resource_name
-#floating_ip
+#vip_floating_ip
 #gm
-#lan1_port
+#vip_port
 
 wait_for_stack $STACK
 
 eval $(heat resource-list $STACK  | cut -f 2,3 -d\| | tr -d ' ' | grep -v + | tr '|' '=')
 
 # Get the various IPs for each node
-FIP=$(neutron floatingip-show -c floating_ip_address -f value $floating_ip)
-GW=$(port_gw $lan1_port)
-LAN=$(port_first_fixed_ip $lan1_port)
+FIP=$(neutron floatingip-show -c floating_ip_address -f value $vip_floating_ip)
+LAN=$(port_first_fixed_ip $vip_port)
 
 wait_for_ping $FIP
 wait_for_ssl $FIP
@@ -34,7 +33,7 @@ wait_for_wapi $FIP
 grid_snmp $FIP
 grid_dns $FIP
 grid_nsgroup $FIP
-write_env $FIP $LAN $floating_ip
+write_env $FIP $LAN $vip_floating_ip
 
 echo
 echo GM is now configured and ready.
