@@ -1,5 +1,5 @@
 heat_template_version: 2013-05-23
-description: Launches an HA pair GM, and configures the Neutron ports such that VRRP will work with IPv4 and virtual router ID 200. You must still manually configure HA on the grid.
+description: Launches an HA pair GM, and configures the Neutron ports such that VRRP will work with IPv4.
 parameters:
   name:
     type: string
@@ -66,9 +66,6 @@ resources:
     properties:
       network: {get_param: lan1_network}
       security_groups: [{get_param: security_group}]
-
-  # NOTE: Virtual Router ID MUST be set to 200 in the GUI for this to work
-  # Also only supports IPv4 at this time.
 
   ha_port_node_1:
     type: OS::Neutron::Port

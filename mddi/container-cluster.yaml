@@ -1,0 +1,44 @@
+heat_template_version: 2015-10-15
+description: Launches a CoreOS cluster.
+parameters:
+  name:
+    type: string
+    description: the base host name for instances in the cluster
+    default: host
+  image:
+    type: string
+    description: The image to use (CoreOS, CoreOS_Beta, CoreOS_Alpha)
+    default: CoreOS
+    constraints:
+      - custom_constraint: glance.image
+  flavor:
+    type: string
+    description: Instance flavor for cluster members
+    default: m1.small
+    constraints:
+      - custom_constraint: nova.flavor
+  key_name:
+    type: string
+    description: Name of keypair to inject into the server.
+    constraints:
+      - custom_constraint: nova.keypair
+  cluster_size:
+    type: number
+    description: the number of instances to launch
+    default: 3
+  discovery_token:
+    type: string
+    description: The cluster discovery token for discovery.etcd.io
+resources:
+  cluster:
+    type: OS::Heat::ResourceGroup
+    properties:
+      count: { get_param: cluster_size }
+      resource_def:
+        type: coreos-two-nics.yaml
+        properties:
+          name: { list_join: [ '-', [ { get_param: name }, '%index%' ] ] }
+          image: { get_param: image }
+          flavor: { get_param: flavor }
+          key_name: { get_param: key_name }
+          discovery_token: { get_param: discovery_token }
