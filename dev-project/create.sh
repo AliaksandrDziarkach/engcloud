@@ -3,6 +3,7 @@
 USERNAME=${1}
 PROJECT_NAME=${2:-$USERNAME}
 EMAIL=${3}
+ADMIN_EMAIL=${4:-jbelamaric@infoblox.com}
 
 if [[ "$OS_USERNAME" != "admin" ]]; then
   echo "Project creation must be done as OpenStack admin."
@@ -57,8 +58,11 @@ while [[ -z "$FIP" ]]; do
 	FIP=$(neutron floatingip-list | grep -E '[0-9]' | cut -d \| -f 4 | tr -d ' ')
 done
 
+echo "FIP is $FIP"
+
 cat > /tmp/$USERNAME-msg.txt <<EOF
 To: $EMAIL
+CC: $ADMIN_EMAIL
 From: EngCloud Admin <noreply@engcloud.infoblox.com>
 Subject: New user $USERNAME for EngCloud
 
@@ -124,7 +128,7 @@ EOF
 
 if [[ ! -z "$EMAIL" ]]; then
 	echo "Sending mail to $EMAIL"
-	sendmail $EMAIL < /tmp/$USERNAME-msg.txt
+	sendmail $EMAIL $ADMIN_EMAIL < /tmp/$USERNAME-msg.txt
 else
 	echo '******'
 	cat /tmp/$USERNAME-msg.txt
