@@ -70,8 +70,7 @@ resources:
       threshold: 5000
       alarm_actions:
         - {get_attr: [scaleup_policy, alarm_url]}
-      #matching_metadata: {'metadata.metering.stack': {get_param: "OS::stack_id"}}
-      matching_metadata: {'infoblox': 'true'}
+      matching_metadata: {'metadata.metering.stack': {get_param: "OS::stack_id"}, 'infoblox': 'true'}
       comparison_operator: gt
   qps_alarm_low:
     type: OS::Ceilometer::Alarm
@@ -84,6 +83,60 @@ resources:
       threshold: 1000
       alarm_actions:
         - {get_attr: [scaledown_policy, alarm_url]}
-      #matching_metadata: {'metadata.metering.stack': {get_param: "OS::stack_id"}}
-      matching_metadata: {'infoblox': 'true'}
+      matching_metadata: {'metadata.metering.stack': {get_param: "OS::stack_id"}, 'infoblox': 'true'}
       comparison_operator: lt
+  host_name:
+    type: OS::Heat::RandomString
+    properties:
+      length: 12
+      sequence: lowercase
+
+# We pre-allocate the port for LAN1, so that we have the IP address already for
+# injection via user_data
+  lan1_port:
+    type: OS::Neutron::Port
+    properties:
+      network: protocol-net
+      security_groups: [ Infoblox ]
+
+# Each member needs a floating IP so Ceilometer can poll the member for QPS.
+  floating_ip:
+    type: OS::Neutron::FloatingIP
+    properties:
+      floating_network: { get_param: external_network }
+      port_id: { get_resource: lan1_port }
+
+  grid_member:
+    type: Infoblox::Grid::Member
+    properties:
+      connection: {url: {get_param: wapi_url}, username: {get_param: wapi_username}, password: {get_param: wapi_password}, sslverify: {get_param: wapi_sslverify}}
+      name: { list_join: [ '.', [{ list_join: [ '-', [ 'member-dns', { get_resource: host_name } ]] }, 'localdomain' ]] }
+      model: { get_param: model }
+# the MGMT interface configuration is not yet supported
+      LAN1: { get_resource: lan1_port }
+      dns: { enable: True }
+      temp_licenses: ["vnios", "dns", "enterprise", "rpz"]
+      gm_ip: { get_param: gm_vip }
+      gm_certificate: { get_param: gm_cert }
+      remote_console_enabled: true
+      admin_password: infoblox
+
+  grid_member_ns_group_entry:
+    type: Infoblox::Grid::NameServerGroupMember
+    properties:
+      connection: {url: {get_param: wapi_url}, username: {get_param: wapi_username}, password: {get_param: wapi_password}, sslverify: {get_param: wapi_sslverify}}
+      group_name: default
+      member_role: grid_secondary
+      member_server: { name: { get_attr: [grid_member, name] } }
+
+  server:
+    type: OS::Nova::Server
+    properties:
+      name: { list_join: [ '-', [ 'member-dns', { get_resource: host_name } ]] }
+      flavor: { get_param: flavor }
+      image: { get_param: image }
+      networks: [{network: mgmt-net }, {port: { get_resource: lan1_port}} ]
+      metadata: {"metering.stack": {get_param: parent_stack_id}, 'infoblox': 'true'}
+      config_drive: true
+      user_data_format: RAW
+      user_data: { get_attr: [grid_member, user_data] }
