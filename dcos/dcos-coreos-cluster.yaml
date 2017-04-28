@@ -4,23 +4,7 @@ parameters:
   name:
     type: string
     description: the base host name for instances in the cluster
-    default: coreos
-  external_network:
-    type: string
-    description: the network for the cluster floating IP
-    default: public-138-net
-    constraints:
-      - custom_constraint: neutron.network
-  private_network:
-    type: string
-    description: the network for the cluster
-    default: dev-net
-    constraints:
-      - custom_constraint: neutron.network
-  security_group:
-    type: string
-    description: the security group to use
-    default: WideOpen
+    default: host
   image:
     type: string
     description: The image to use (CoreOS, CoreOS_Beta, CoreOS_Alpha)
@@ -30,9 +14,17 @@ parameters:
   flavor:
     type: string
     description: Instance flavor for cluster members
-    default: m1.small
+    default: m1.medium
     constraints:
       - custom_constraint: nova.flavor
+  security_group:
+    type: string
+    description: the security group to use
+    default: DC/OS
+  mgmt_network:
+    type: string
+    description: Management network for the cluster
+    default: dcos-mgmt-net
   key_name:
     type: string
     description: Name of keypair to inject into the server.
@@ -46,27 +38,26 @@ parameters:
     type: string
     description: The cluster discovery token for discovery.etcd.io
 resources:
-  floatingip:
-    type: OS::Neutron::FloatingIP
+  server:
+    type: OS::Nova::Server
     properties:
-      floating_network: { get_param: external_network }
-      #port_id: { get_resource: lan1_port }
-
+      name: { list_join: [ '-', [ { get_param: name }, 'bootstrap' ] ] }
+      flavor: m1.small
+      image: {get_param: image}
+      key_name: {get_param: key_name}
+      security_groups: [ { get_param: security_group } ]
+      networks: [ {network: { get_param: mgmt_network } } ]
   cluster:
     type: OS::Heat::ResourceGroup
     properties:
       count: { get_param: cluster_size }
       resource_def:
-        type: coreos.yaml
+        type: coreos-two-nics.yaml
         properties:
           name: { list_join: [ '-', [ { get_param: name }, '%index%' ] ] }
-          private_network: { get_param: private_network }
-          security_group: { get_param: security_group }
           image: { get_param: image }
           flavor: { get_param: flavor }
           key_name: { get_param: key_name }
           discovery_token: { get_param: discovery_token }
-
-outputs:
-  attrs:
-    value: { get_attr: [ cluster, attributes ] }
+          security_group: { get_param: security_group }
+          mgmt_network: { get_param: mgmt_network }

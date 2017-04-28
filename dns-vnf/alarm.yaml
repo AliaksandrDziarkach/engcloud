@@ -1,0 +1,16 @@
+heat_template_version: 2014-10-16
+description: AutoScaling Infoblox DNS Service
+parameters:
+resources:
+  qps_alarm_low:
+    type: OS::Ceilometer::Alarm
+    properties:
+      description: Scale down based on QPS
+      meter_name: nios.dns.qps
+      statistic: avg
+      period: 1200
+      evaluation_periods: 10
+      threshold: 1000
+      #alarm_actions:
+      matching_metadata: {'infoblox': 'true'}
+      comparison_operator: lt

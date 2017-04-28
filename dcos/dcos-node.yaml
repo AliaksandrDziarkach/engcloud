@@ -1,0 +1,67 @@
+heat_template_version: 2015-10-15
+description: Launches a node for a DC/OS cluster.
+parameters:
+  name:
+    type: string
+    description: the host name
+    default: dcos
+  mgmt_network:
+    type: string
+    description: the network for the cluster
+    default: dcos-mgmt-net
+    constraints:
+      - custom_constraint: neutron.network
+  container_network:
+    type: string
+    description: the network for the cluster
+    default: dcos-container-net
+    constraints:
+      - custom_constraint: neutron.network
+  security_group:
+    type: string
+    description: the security group to use
+    default: DC/OS
+  image:
+    type: string
+    description: The image to use.
+    default: CentOS-7-aka-RHEL-7-2
+    constraints:
+      - custom_constraint: glance.image
+  flavor:
+    type: string
+    description: Instance flavor for cluster members
+    default: m1.medium
+    constraints:
+      - custom_constraint: nova.flavor
+  key_name:
+    type: string
+    description: Name of keypair to inject into the server.
+    constraints:
+      - custom_constraint: nova.keypair
+
+resources:
+      mgmt_port:
+        type: OS::Neutron::Port
+        properties:
+          network: { get_param: mgmt_network }
+          security_groups: [ {get_param: security_group } ]
+
+# We create the container port, which in OpenStack will allocate an IP
+# In fact, we don't need an IP on this port, so we won't actually configure
+# it when the time comes.
+# We have to disable port security so all the traffic on the L2 broadcast
+# domain goes to the guest. This is done on the whole container_network.
+      container_port:
+        type: OS::Neutron::Port
+        properties:
+          network: { get_param: container_network }
+          port_security_enabled: false
+
+      server:
+        type: OS::Nova::Server
+        properties:
+          name: {get_param: name}
+          flavor: {get_param: flavor}
+          image: {get_param: image}
+          key_name: {get_param: key_name}
+          networks: [{port: {get_resource: mgmt_port}}, {port: {get_resource: container_port}}]

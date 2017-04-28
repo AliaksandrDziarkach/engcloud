@@ -1,0 +1,67 @@
+heat_template_version: 2015-10-15
+description: Builds a simple network topology for the container IPAM flat network example.
+parameters:
+  router:
+    type: string
+    description: the router to attach the networks to
+    default: dev-router
+  mgmt_cidr:
+    type: string
+    description: A management network will be created; this is the cidr to use on that network.
+    default: 10.10.0.0/27
+  container_cidr:
+    type: string
+    description: A container network will be created; this is the cidr to use on that network.
+    default: 10.20.0.0/22
+  nameserver:
+    type: string
+    description: The nameserver for the management subnet.
+    default: 172.23.25.240
+
+resources:
+  mgmt_net:
+    type: OS::Neutron::Net
+    properties:
+      name: dcos-mgmt-net
+
+  mgmt_subnet:
+    type: OS::Neutron::Subnet
+    depends_on: mgmt_net
+    properties:
+      name: dcos-mgmt-subnet
+      network: {get_resource: mgmt_net}
+      cidr: {get_param: mgmt_cidr}
+      dns_nameservers: [{get_param: nameserver}]
+
+  container_net:
+    type: OS::Neutron::Net
+    properties:
+      name: dcos-container-net
+
+  container_subnet:
+    type: OS::Neutron::Subnet
+    depends_on: container_net
+    properties:
+      name: dcos-container-subnet
+      network: {get_resource: container_net}
+      cidr: {get_param: container_cidr}
+      enable_dhcp: false
+
+  router_mgmt:
+    type: OS::Neutron::RouterInterface
+    properties:
+      router: {get_param: router}
+      subnet: {get_resource: mgmt_subnet}
+
+  router_container:
+    type: OS::Neutron::RouterInterface
+    properties:
+      router: {get_param: router}
+      subnet: {get_resource: container_subnet}
+
+  sg:
+    type: OS::Neutron::SecurityGroup
+    properties:
+      name: DC/OS
+      description: This security group opens up everything for the demo.
+      rules: [ {direction: egress}, {direction: ingress} ]
