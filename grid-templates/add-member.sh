@@ -2,22 +2,27 @@
 
 # WAPI Calls for Adding a Member
 
-GMIP=172.22.138.127
+GMIP=${GMIP:-172.22.138.127}
 USER=admin
 PASSWD=infoblox
 NS_GROUP=default
-MEMBER_IP=10.10.10.10
-MEMBER_GW=10.10.10.1
+MEMBER_IP=${MEMBER_IP:-10.10.10.10}
+MEMBER_GW=${MEMBER_GW:-10.10.10.1}
 MEMBER_MASK=255.255.255.0
 MEMBER_NAME=member.localdomain
-MEMBER_MODEL="IB-VM-820"
-MEMBER_LICENSES='"enterprise", "dns", "dhcp"'
+# This can be a trinzic model (like "IB-VM-820"), an SoT model (like "IB-V815"), or flex ("IB-FLEX")
+MEMBER_MODEL=${MEMBER_MODEL:-IB-VM-820}
+MEMBER_LICENSES=${MEMBER_LICENSES:-\"enterprise\", \"dns\", \"dhcp\"}
 
 WAPI_VERSION="wapi/v2.6"
 
 IS_SOT=false
 if [[ $MEMBER_MODEL =~ 5$ ]]; then
     IS_SOT=true
+fi
+IS_FLEX=false
+if [ "$MEMBER_MODEL" = "IB-FLEX" ]; then
+    IS_FLEX=true
 fi
 
 # Add NIOS license
@@ -49,12 +54,12 @@ MEMBER_REF=${MEMBER_REF//\:/%3A}
 echo Created member $MEMBER_REF
 
 echo Pre-provisioning member
-if $IS_SOT ; then
+if $IS_SOT || $IS_FLEX ; then
     HARDWARE_INFO="\"hwtype\": \"$MEMBER_MODEL\""
 else
     HARDWARE_INFO="\"hwmodel\": \"$MEMBER_MODEL\", \"hwtype\": \"IB-VNIOS\""
 fi
-# Adding licenses using cloud-init - so licenses are not needed for preprovisioning call.
+# Adding temp licenses using cloud-init - so licenses are not needed for preprovisioning call.
 echo $(curl -H "Content-Type: application/json" -ks -u $USER:$PASSWD \
   -X PUT https://$GMIP/$WAPI_VERSION/$MEMBER_REF -d@- <<EOF
 {
@@ -97,12 +102,19 @@ echo You have 10 minutes until the token expires. Better hurry.
 echo
 
 LICENSES=$(echo $MEMBER_LICENSES | tr -d '" ')
+HWTYPE=
+if $IS_FLEX ; then
+    HWTYPE="hardware_type: IB-FLEX"
+    # Most licenses not compatible with flex type - assuming flex license on GM
+    LICENSES=
+fi
 
 cat <<EOF > /tmp/user_data.$$.yaml
 #infoblox-config
 
 remote_console_enabled: y
 temp_license: $LICENSES
+$HWTYPE
 lan1:
   v4_addr: $MEMBER_IP
   v4_netmask: $MEMBER_MASK
